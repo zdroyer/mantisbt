@@ -58,7 +58,6 @@ compress_enable();
 $t_can_edit = access_has_global_level( config_get( 'tag_edit_threshold' ) );
 $f_filter = utf8_strtoupper( gpc_get_string( 'filter', config_get( 'default_manage_tag_prefix' ) ) );
 $f_page_number = gpc_get_int( 'page_number', 1 );
-$t_tag_table = db_get_table( 'tag' );
 
 # Start Index Menu
 $t_prefix_array = array( 'ALL' );
@@ -87,9 +86,7 @@ $t_offset = (( $f_page_number - 1 ) * $t_per_page );
 # Determine number of tags in tag table
 $t_total_tag_count = 0;
 $t_result = '';
-$t_query = "SELECT count(*)
-			FROM $t_tag_table
-			$t_where";
+$t_query = "SELECT count(*) FROM {tag} $t_where";
 
 $t_result = db_query_bound( $t_query, $t_where_params );
 $t_row = db_fetch_array( $t_result );
@@ -113,9 +110,7 @@ if ( $f_page_number < 1 ) {
 }
 
 # Retrive Tags from tag table
-$t_query = "SELECT *
-		FROM $t_tag_table
-		$t_where ORDER BY name";
+$t_query = "SELECT * FROM {tag}	$t_where ORDER BY name";
 
 $t_result = db_query_bound( $t_query, $t_where_params, $t_per_page, $t_offset );
 

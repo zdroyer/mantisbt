@@ -60,9 +60,8 @@ require_api( 'utility_api.php' );
  */
 function tag_exists( $p_tag_id ) {
 	$c_tag_id = db_prepare_int( $p_tag_id );
-	$t_tag_table = db_get_table( 'tag' );
 
-	$query = "SELECT id FROM $t_tag_table WHERE id=" . db_param();
+	$query = 'SELECT id FROM {tag} WHERE id=' . db_param();
 	$result = db_query_bound( $query, array( $c_tag_id ) );
 
 	return db_result( $result ) > 0;
@@ -87,9 +86,8 @@ function tag_ensure_exists( $p_tag_id ) {
  */
 function tag_is_unique( $p_name ) {
 	$c_name = trim( $p_name );
-	$t_tag_table = db_get_table( 'tag' );
 
-	$query = 'SELECT id FROM ' . $t_tag_table . ' WHERE ' . db_helper_like( 'name' );
+	$query = 'SELECT id FROM {tag} WHERE ' . db_helper_like( 'name' );
 	$result = db_query_bound( $query, array( $c_name ) );
 
 	if ( db_result( $result ) ) {
@@ -242,10 +240,7 @@ function tag_get( $p_tag_id ) {
 
 	$c_tag_id = db_prepare_int( $p_tag_id );
 
-	$t_tag_table = db_get_table( 'tag' );
-
-	$query = "SELECT * FROM $t_tag_table
-					WHERE id=" . db_param();
+	$query = "SELECT * FROM {tag} WHERE id=" . db_param();
 	$result = db_query_bound( $query, array( $c_tag_id ) );
 
 	$row = db_fetch_array( $result );
@@ -263,10 +258,7 @@ function tag_get( $p_tag_id ) {
  * @return Tag row
  */
 function tag_get_by_name( $p_name ) {
-	$t_tag_table = db_get_table( 'tag' );
-
-	$query = "SELECT * FROM $t_tag_table
-					WHERE " . db_helper_like( 'name' );
+	$query = "SELECT * FROM {tag} WHERE " . db_helper_like( 'name' );
 	$result = db_query_bound( $query, array( $p_name ) );
 
 	$row = db_fetch_array( $result );
@@ -319,9 +311,7 @@ function tag_create( $p_name, $p_user_id = null, $p_description = '' ) {
 	$c_user_id = db_prepare_int( $p_user_id );
 	$c_date_created = db_now();
 
-	$t_tag_table = db_get_table( 'tag' );
-
-	$query = "INSERT INTO $t_tag_table
+	$query = "INSERT INTO {tag}
 				( user_id,
 				  name,
 				  description,
@@ -371,9 +361,7 @@ function tag_update( $p_tag_id, $p_name, $p_user_id, $p_description ) {
 	$c_tag_id = trim( db_prepare_int( $p_tag_id ) );
 	$c_date_updated = db_now();
 
-	$t_tag_table = db_get_table( 'tag' );
-
-	$query = "UPDATE $t_tag_table
+	$query = "UPDATE {tag}
 					SET user_id=" . db_param() . ",
 						name=" . db_param() . ",
 						description=" . db_param() . ",
@@ -408,11 +396,7 @@ function tag_delete( $p_tag_id ) {
 
 	$c_tag_id = db_prepare_int( $p_tag_id );
 
-	$t_tag_table = db_get_table( 'tag' );
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
-
-	$query = "DELETE FROM $t_tag_table
-					WHERE id=" . db_param();
+	$query = 'DELETE FROM {tag} WHERE id=' . db_param();
 	db_query_bound( $query, array( $c_tag_id ) );
 
 	return true;
@@ -426,16 +410,13 @@ function tag_delete( $p_tag_id ) {
  * @returns The array of tag rows, each with id, name, and description.
  */
 function tag_get_candidates_for_bug( $p_bug_id ) {
-	$t_tag_table = db_get_table( 'tag' );
-
 	$t_params = array();
 	if ( 0 != $p_bug_id ) {
-		$t_bug_tag_table = db_get_table( 'bug_tag' );
 
 		if ( db_is_mssql() ) {
 			$t_params[] = $p_bug_id;
-			$query = "SELECT t.id FROM $t_tag_table t
-					LEFT JOIN $t_bug_tag_table b ON t.id=b.tag_id
+			$query = "SELECT t.id FROM {tag} t
+					LEFT JOIN {bug_tag} b ON t.id=b.tag_id
 					WHERE b.bug_id IS NULL OR b.bug_id != " . db_param();
 			$result = db_query_bound( $query, $t_params );
 
@@ -444,17 +425,17 @@ function tag_get_candidates_for_bug( $p_bug_id ) {
 			while( $row = db_fetch_array( $result ) ) {
 				$t_subquery_results[] = (int)$row;
 			}
-			$query = "SELECT id, name, description FROM $t_tag_table WHERE id IN ( " . implode( ', ', $t_subquery_results ) . ')';
+			$query = "SELECT id, name, description FROM {tag} WHERE id IN ( " . implode( ', ', $t_subquery_results ) . ')';
 		} else {
-			$query = "SELECT id, name, description FROM $t_tag_table WHERE id IN (
-					SELECT t.id FROM $t_tag_table t
-					LEFT JOIN $t_bug_tag_table b ON t.id=b.tag_id
+			$query = "SELECT id, name, description FROM {tag} WHERE id IN (
+					SELECT t.id FROM {tag} t
+					LEFT JOIN {bug_tag} b ON t.id=b.tag_id
 					WHERE b.bug_id IS NULL OR b.bug_id != " . db_param() .
 				')';
 		}
 		$t_params[] = $p_bug_id;
 	} else {
-		$query = 'SELECT id, name, description FROM ' . $t_tag_table;
+		$query = 'SELECT id, name, description FROM {tag}';
 	}
 
 	$query .= ' ORDER BY name ASC ';
@@ -480,9 +461,7 @@ function tag_bug_is_attached( $p_tag_id, $p_bug_id ) {
 	$c_tag_id = db_prepare_int( $p_tag_id );
 	$c_bug_id = db_prepare_int( $p_bug_id );
 
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
-
-	$query = "SELECT id FROM $t_bug_tag_table
+	$query = "SELECT id FROM {bug_tag}
 					WHERE tag_id=" . db_param() . " AND bug_id=" . db_param();
 	$result = db_query_bound( $query, array( $c_tag_id, $c_bug_id ) );
 	return( db_result( $result ) > 0 );
@@ -498,9 +477,7 @@ function tag_bug_get_row( $p_tag_id, $p_bug_id ) {
 	$c_tag_id = db_prepare_int( $p_tag_id );
 	$c_bug_id = db_prepare_int( $p_bug_id );
 
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
-
-	$query = "SELECT * FROM $t_bug_tag_table
+	$query = "SELECT * FROM {bug_tag}
 					WHERE tag_id=" . db_param() . " AND bug_id=" . db_param();
 	$result = db_query_bound( $query, array( $c_tag_id, $c_bug_id ) );
 
@@ -519,12 +496,9 @@ function tag_bug_get_row( $p_tag_id, $p_bug_id ) {
 function tag_bug_get_attached( $p_bug_id ) {
 	$c_bug_id = db_prepare_int( $p_bug_id );
 
-	$t_tag_table = db_get_table( 'tag' );
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
-
 	$query = "SELECT t.*, b.user_id as user_attached, b.date_attached
-					FROM $t_tag_table as t
-					LEFT JOIN $t_bug_tag_table as b
+					FROM {tag} as t
+					LEFT JOIN {bug_tag} as b
 						on t.id=b.tag_id
 					WHERE b.bug_id=" . db_param();
 	$result = db_query_bound( $query, array( $c_bug_id ) );
@@ -546,10 +520,7 @@ function tag_bug_get_attached( $p_bug_id ) {
 function tag_get_bugs_attached( $p_tag_id ) {
 	$c_tag_id = db_prepare_int( $p_tag_id );
 
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
-
-	$query = "SELECT bug_id FROM $t_bug_tag_table
-					WHERE tag_id=" . db_param();
+	$query = "SELECT bug_id FROM {bug_tag} WHERE tag_id=" . db_param();
 	$result = db_query_bound( $query, array( $c_tag_id ) );
 
 	$bugs = array();
@@ -585,9 +556,7 @@ function tag_bug_attach( $p_tag_id, $p_bug_id, $p_user_id = null ) {
 	$c_bug_id = db_prepare_int( $p_bug_id );
 	$c_user_id = db_prepare_int( $p_user_id );
 
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
-
-	$query = "INSERT INTO $t_bug_tag_table
+	$query = "INSERT INTO {bug_tag}
 					( tag_id,
 					  bug_id,
 					  user_id,
@@ -640,10 +609,7 @@ function tag_bug_detach( $p_tag_id, $p_bug_id, $p_add_history = true, $p_user_id
 	$c_tag_id = db_prepare_int( $p_tag_id );
 	$c_bug_id = db_prepare_int( $p_bug_id );
 
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
-
-	$query = "DELETE FROM $t_bug_tag_table
-					WHERE tag_id=" . db_param() . ' AND bug_id=' . db_param();
+	$query = "DELETE FROM {bug_tag} WHERE tag_id=" . db_param() . ' AND bug_id=' . db_param();
 	db_query_bound( $query, array( $c_tag_id, $c_bug_id ) );
 
 	if( $p_add_history ) {
@@ -732,10 +698,8 @@ function tag_display_attached( $p_bug_id ) {
  */
 function tag_stats_attached( $p_tag_id ) {
 	$c_tag_id = db_prepare_int( $p_tag_id );
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
 
-	$query = "SELECT COUNT(*) FROM $t_bug_tag_table
-					WHERE tag_id=" . db_param();
+	$query = "SELECT COUNT(*) FROM {bug_tag} WHERE tag_id=" . db_param();
 	$result = db_query_bound( $query, array( $c_tag_id ) );
 
 	return db_result( $result );
@@ -751,26 +715,20 @@ function tag_stats_attached( $p_tag_id ) {
  * @return array Array of tag rows, with share count added
  */
 function tag_stats_related( $p_tag_id, $p_limit = 5 ) {
-	$t_bug_table = db_get_table( 'bug' );
-	$t_tag_table = db_get_table( 'tag' );
-	$t_bug_tag_table = db_get_table( 'bug_tag' );
-	$t_project_user_list_table = db_get_table( 'project_user_list' );
-	$t_user_table = db_get_table( 'user' );
-
 	$c_tag_id = db_prepare_int( $p_tag_id );
 	$c_user_id = auth_get_current_user_id();
 
-	$subquery = "SELECT b.id FROM $t_bug_table AS b
-					LEFT JOIN $t_project_user_list_table AS p
+	$subquery = "SELECT b.id FROM {bug} AS b
+					LEFT JOIN {project_user_list} AS p
 						ON p.project_id=b.project_id AND p.user_id=" . db_param() . "
-					JOIN $t_user_table AS u
+					JOIN {user} AS u
 						ON u.id=" . db_param() . "
-					JOIN $t_bug_tag_table AS t
+					JOIN {bug_tag} AS t
 						ON t.bug_id=b.id
 					WHERE ( p.access_level>b.view_state OR u.access_level>b.view_state )
 						AND t.tag_id=" . db_param();
 
-	$query = "SELECT * FROM $t_bug_tag_table
+	$query = "SELECT * FROM {bug_tag}
 					WHERE tag_id != " . db_param() . "
 						AND bug_id IN ( $subquery ) ";
 

@@ -137,12 +137,12 @@ function db_is_db2() {
  * @global adodb database connection object
  * @global boolean indicating whether queries array is populated
  * @param string $query Parameterlised Query string to execute
- * @param array $arrParms Array of parameters matching $p_query
+ * @param array $p_arr_parms Array of parameters matching $p_query
  * @param int $limit Number of results to return
  * @param int $offset offset query results for paging
  * @return ADORecordSet|bool adodb result set or false if the query failed.
  */
-function db_query_bound( $query, $arrParms = null, $limit = -1, $offset = -1 ) {
+function db_query_bound( $p_query, $p_arr_parms = null, $p_limit = -1, $p_offset = -1 ) {
 	global $g_queries_array, $g_db, $g_db_log_queries;
 
 	static $s_check_params;
@@ -150,44 +150,48 @@ function db_query_bound( $query, $arrParms = null, $limit = -1, $offset = -1 ) {
 		$s_check_params = ( db_is_pgsql() || config_get_global( 'db_type' ) == 'odbc_mssql' );
 	}
 
-	if(( $limit != -1 ) || ( $offset != -1 ) ) {
-		$result = $g_db->selectLimit( $query, $limit, $offset, $arrParms );
+	$p_query = db_prefix_tables( $p_query );
+
+	$t_start = microtime(true);
+
+	if( ( $p_limit != -1 ) || ( $p_offset != -1 ) ) {
+		$t_result = $g_db->selectLimit( $p_query, $p_limit, $p_offset, $p_arr_parms );
 	} else {
-		$result = $g_db->execute( $query, $arrParms );
+		$t_result = $g_db->execute( $p_query, $p_arr_parms );
 	}
 
-	//$elapsed = number_format( microtime(true) - $start, 4 );
+	$t_elapsed = number_format( microtime(true) - $t_start, 4 );
 
 	if( ON == $g_db_log_queries ) {
 		$dbType = config_get_global( 'db_type' );
 		$lastOffset = 0;
 		$i = 1;
-		if( !( is_null( $arrParms ) || empty( $arrParms ) ) ) {
+		if( !( is_null( $p_arr_parms ) || empty( $p_arr_parms ) ) ) {
 			while( preg_match( '/(\?)/', $query, $matches, PREG_OFFSET_CAPTURE, $lastOffset ) ) {
-				if( $i <= count( $arrParms ) ) {
-					if( is_null( $arrParms[$i - 1] ) ) {
+				if( $i <= count( $p_arr_parms ) ) {
+					if( is_null( $p_arr_parms[$i - 1] ) ) {
 						$replace = 'NULL';
 					}
-					else if( is_string( $arrParms[$i - 1] ) ) {
-						$replace = "'" . $arrParms[$i - 1] . "'";
+					else if( is_string( $p_arr_parms[$i - 1] ) ) {
+						$replace = "'" . $p_arr_parms[$i - 1] . "'";
 					}
-					else if( is_integer( $arrParms[$i - 1] ) || is_float( $arrParms[$i - 1] ) ) {
-						$replace = (float) $arrParms[$i - 1];
+					else if( is_integer( $p_arr_parms[$i - 1] ) || is_float( $p_arr_parms[$i - 1] ) ) {
+						$replace = (float) $p_arr_parms[$i - 1];
 					}
-					else if( is_bool( $arrParms[$i - 1] ) ) {
+					else if( is_bool( $p_arr_parms[$i - 1] ) ) {
 						switch( $dbType ) {
 							case 'pgsql':
-								$replace = "'" . $arrParms[$i - 1] . "'";
+								$replace = "'" . $p_arr_parms[$i - 1] . "'";
 							break;
 						default:
-							$replace = $arrParms[$i - 1];
+							$replace = $p_arr_parms[$i - 1];
 							break;
 						}
 					} else {
 						echo( "Invalid argument type passed to query_bound(): $i" );
 						exit( 1 );
 					}
-					$query = utf8_substr( $query, 0, $matches[1][1] ) . $replace . utf8_substr( $query, $matches[1][1] + utf8_strlen( $matches[1][0] ) );
+					$p_query = utf8_substr( $p_query, 0, $matches[1][1] ) . $replace . utf8_substr( $p_query, $matches[1][1] + utf8_strlen( $matches[1][0] ) );
 					$lastoffset = $matches[1][1] + utf8_strlen( $replace );
 				} else {
 					$lastOffset = $matches[1][1] + 1;
@@ -195,18 +199,18 @@ function db_query_bound( $query, $arrParms = null, $limit = -1, $offset = -1 ) {
 				$i++;
 			}
 		}
-		//log_event( LOG_DATABASE, array( $query, $elapsed), debug_backtrace() );
-		//array_push( $g_queries_array, array( $query, $elapsed ) );
+		log_event( LOG_DATABASE, array( $p_query, $t_elapsed), debug_backtrace() );
+		array_push( $g_queries_array, array( $p_query, $t_elapsed ) );
 	} else {
-		//array_push( $g_queries_array, array( '', $elapsed ) );
+		array_push( $g_queries_array, array( '', $t_elapsed ) );
 	}
 
-	if( !$result ) {
-		db_error( $query );
+	if( !$t_result ) {
+		db_error( $p_query );
 		trigger_error( ERROR_DB_QUERY_FAILED, ERROR );
 		return false;
 	} else {
-		return $result;
+		return $t_result;
 	}
 }
 
@@ -546,4 +550,10 @@ function db_get_table( $option ) {
 function db_get_table_list() {
 	global $g_db;
 	return $g_db->getTables();
+}
+
+function db_prefix_tables($sql) {
+	$t_prefix = config_get_global( 'db_table_prefix' ) . '_';
+	$t_suffix = config_get_global( 'db_table_suffix' );
+	return strtr($sql, array('{' => $t_prefix, '}' => $t_suffix));
 }
